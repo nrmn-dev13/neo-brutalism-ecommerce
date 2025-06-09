@@ -1,13 +1,19 @@
 "use client";
 
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/store/cartStore";
 import { Cart } from "./Cart";
 import { useState, useEffect } from "react";
 
-export function Header() {
+interface HeaderProps {
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+}
+
+export function Header({ searchQuery, onSearchChange }: HeaderProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -24,9 +30,23 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between mx-auto">
+        <div className="container flex h-14 items-center justify-between mx-auto gap-4">
           <div className="flex items-center space-x-2">
             <h1 className="text-xl font-bold">Neo Ecommerce</h1>
+          </div>
+
+          {/* Search Input */}
+          <div className="flex-1 max-w-md mx-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10 pr-4"
+              />
+            </div>
           </div>
 
           <Button

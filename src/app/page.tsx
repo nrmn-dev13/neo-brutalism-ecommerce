@@ -1,52 +1,105 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/molecules/Header";
 import { ProductCard } from "@/components/molecules/ProductCard";
-import { Product } from "@/types";
-import { getProducts } from "@/lib/api";
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+import { Product, ProductsResponse } from "@/types";
+import { getProducts, searchProducts } from "@/lib/api";
+
+const PRODUCTS_PER_PAGE = 20;
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [productsData, setProductsData] = useState<ProductsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getProducts();
-        setProducts(data);
-      } catch (err) {
-        setError("Failed to load products");
-        console.error("Error loading products:", err);
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async (page: number, query: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let data: ProductsResponse;
+      if (query.trim()) {
+        data = await searchProducts(query, page, PRODUCTS_PER_PAGE);
+      } else {
+        data = await getProducts(page, PRODUCTS_PER_PAGE);
       }
+      
+      setProductsData(data);
+    } catch (err) {
+      setError("Failed to load products");
+      console.error("Error loading products:", err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchProducts();
   }, []);
 
-  // Filter products based on search query
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return products;
-    }
-
-    const query = searchQuery.toLowerCase().trim();
-    return products.filter(
-      (product) =>
-        product.title.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query)
-    );
-  }, [products, searchQuery]);
+  useEffect(() => {
+    fetchData(currentPage, searchQuery);
+  }, [currentPage, searchQuery, fetchData]);
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Calculate pagination values
+  const totalPages = productsData ? Math.ceil(productsData.total / PRODUCTS_PER_PAGE) : 0;
+  const products = productsData?.products || [];
+
+  // Generate page numbers for pagination
+  const generatePageNumbers = () => {
+    const delta = 2; // Number of pages to show around current page
+    const pages: (number | string)[] = [];
+    
+    // Always show first page
+    if (totalPages <= 7) {
+      // Show all pages if total is small
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Complex pagination logic
+      pages.push(1);
+      
+      if (currentPage > delta + 2) {
+        pages.push('...');
+      }
+      
+      const start = Math.max(2, currentPage - delta);
+      const end = Math.min(totalPages - 1, currentPage + delta);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (currentPage < totalPages - delta - 1) {
+        pages.push('...');
+      }
+      
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
   };
 
   if (loading) {
@@ -98,17 +151,23 @@ export default function Home() {
           <p className="text-muted-foreground">
             {searchQuery ? (
               <>
-                {filteredProducts.length} result{filteredProducts.length !== 1 ? "s" : ""} found for "{searchQuery}"
+                {productsData?.total || 0} result{(productsData?.total || 0) !== 1 ? "s" : ""} found for "{searchQuery}"
+                {totalPages > 1 && (
+                  <span className="ml-2">• Page {currentPage} of {totalPages}</span>
+                )}
               </>
             ) : (
               <>
-                Discover our amazing collection of {products.length} products
+                Discover our amazing collection of {productsData?.total || 0} products
+                {totalPages > 1 && (
+                  <span className="ml-2">• Page {currentPage} of {totalPages}</span>
+                )}
               </>
             )}
           </p>
         </div>
 
-        {filteredProducts.length === 0 && searchQuery ? (
+        {products.length === 0 && searchQuery ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg mb-4">
               No products found matching "{searchQuery}"
@@ -124,11 +183,50 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination className="mt-8">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {generatePageNumbers().map((page, index) => (
+                    <PaginationItem key={index}>
+                      {page === '...' ? (
+                        <PaginationEllipsis />
+                      ) : (
+                        <PaginationLink
+                          onClick={() => handlePageChange(page as number)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      )}
+                    </PaginationItem>
+                  ))}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </>
         )}
       </main>
     </div>

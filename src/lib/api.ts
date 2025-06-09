@@ -59,6 +59,38 @@ export async function getProducts(
   }
 }
 
+export async function getProductsByCategory(
+  category: string,
+  page: number = 1, 
+  limit: number = 20,
+  sortBy?: string,
+  order?: 'asc' | 'desc'
+): Promise<ProductsResponse> {
+  try {
+    const skip = (page - 1) * limit;
+    let url = `https://dummyjson.com/products/category/${category}?limit=${limit}&skip=${skip}`;
+    
+    if (sortBy && order) {
+      url += `&sortBy=${sortBy}&order=${order}`;
+    }
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch products by category');
+    }
+    const data: ProductsResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching products by category:', error);
+    return {
+      products: [],
+      total: 0,
+      skip: 0,
+      limit: 20
+    };
+  }
+}
+
 export async function searchProducts(
   query: string, 
   page: number = 1, 
@@ -89,5 +121,41 @@ export async function searchProducts(
       skip: 0,
       limit: 20
     };
+  }
+}
+
+export async function getCategories(): Promise<string[]> {
+  try {
+    const response = await fetch('https://dummyjson.com/products/categories');
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories');
+    }
+    const categories = await response.json();
+    
+    // DummyJSON returns categories as array of objects with slug and name
+    // We'll use the slug values for API calls
+    if (Array.isArray(categories) && categories.length > 0) {
+      if (typeof categories[0] === 'object' && categories[0].slug) {
+        return categories.map((cat: any) => cat.slug);
+      } else if (typeof categories[0] === 'string') {
+        return categories;
+      }
+    }
+    
+    return categories;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    // Fallback categories
+    return [
+      'smartphones',
+      'laptops',
+      'fragrances',
+      'skincare',
+      'groceries',
+      'home-decoration',
+      'furniture',
+      'womens-dresses',
+      'mens-shirts'
+    ];
   }
 }

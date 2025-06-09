@@ -1,9 +1,20 @@
 import { Product, ProductsResponse } from '@/types';
 
-export async function getProducts(page: number = 1, limit: number = 20): Promise<ProductsResponse> {
+export async function getProducts(
+  page: number = 1, 
+  limit: number = 20,
+  sortBy?: string,
+  order?: 'asc' | 'desc'
+): Promise<ProductsResponse> {
   try {
     const skip = (page - 1) * limit;
-    const response = await fetch(`https://dummyjson.com/products?limit=${limit}&skip=${skip}`);
+    let url = `https://dummyjson.com/products?limit=${limit}&skip=${skip}`;
+    
+    if (sortBy && order) {
+      url += `&sortBy=${sortBy}&order=${order}`;
+    }
+    
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
@@ -48,10 +59,22 @@ export async function getProducts(page: number = 1, limit: number = 20): Promise
   }
 }
 
-export async function searchProducts(query: string, page: number = 1, limit: number = 20): Promise<ProductsResponse> {
+export async function searchProducts(
+  query: string, 
+  page: number = 1, 
+  limit: number = 20,
+  sortBy?: string,
+  order?: 'asc' | 'desc'
+): Promise<ProductsResponse> {
   try {
     const skip = (page - 1) * limit;
-    const response = await fetch(`https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=${limit}&skip=${skip}`);
+    let url = `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=${limit}&skip=${skip}`;
+    
+    if (sortBy && order) {
+      url += `&sortBy=${sortBy}&order=${order}`;
+    }
+    
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to search products');
     }

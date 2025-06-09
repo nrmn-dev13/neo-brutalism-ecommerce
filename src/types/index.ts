@@ -22,3 +22,10 @@ export interface ProductsResponse {
   skip: number;
   limit: number;
 }
+
+export interface SortOption {
+  value: string;
+  label: string;
+  sortBy?: string;
+  order?: 'asc' | 'desc';
+}

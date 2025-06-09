@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/molecules/Header";
 import { ProductCard } from "@/components/molecules/ProductCard";
+import { SortCombobox } from "@/components/molecules/SortCombobox";
 import { 
   Pagination,
   PaginationContent,
@@ -12,8 +13,9 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { Product, ProductsResponse } from "@/types";
+import { ProductsResponse } from "@/types";
 import { getProducts, searchProducts } from "@/lib/api";
+import { sortOptions } from "@/components/molecules/SortCombobox";
 
 const PRODUCTS_PER_PAGE = 20;
 
@@ -23,17 +25,23 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortValue, setSortValue] = useState("default");
 
-  const fetchData = useCallback(async (page: number, query: string) => {
+  const fetchData = useCallback(async (page: number, query: string, sort: string) => {
     try {
       setLoading(true);
       setError(null);
       
+      // Get sort parameters
+      const sortOption = sortOptions.find(option => option.value === sort);
+      const sortBy = sortOption?.sortBy;
+      const order = sortOption?.order;
+      
       let data: ProductsResponse;
       if (query.trim()) {
-        data = await searchProducts(query, page, PRODUCTS_PER_PAGE);
+        data = await searchProducts(query, page, PRODUCTS_PER_PAGE, sortBy, order);
       } else {
-        data = await getProducts(page, PRODUCTS_PER_PAGE);
+        data = await getProducts(page, PRODUCTS_PER_PAGE, sortBy, order);
       }
       
       setProductsData(data);
@@ -46,12 +54,17 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchData(currentPage, searchQuery);
-  }, [currentPage, searchQuery, fetchData]);
+    fetchData(currentPage, searchQuery, sortValue);
+  }, [currentPage, searchQuery, sortValue, fetchData]);
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleSortChange = (value: string) => {
+    setSortValue(value);
+    setCurrentPage(1); // Reset to first page when sorting
   };
 
   const handlePageChange = (page: number) => {
@@ -63,6 +76,9 @@ export default function Home() {
   // Calculate pagination values
   const totalPages = productsData ? Math.ceil(productsData.total / PRODUCTS_PER_PAGE) : 0;
   const products = productsData?.products || [];
+
+  // Get current sort label
+  const currentSortLabel = sortOptions.find(option => option.value === sortValue)?.label || "Default";
 
   // Generate page numbers for pagination
   const generatePageNumbers = () => {
@@ -105,7 +121,10 @@ export default function Home() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header searchQuery={searchQuery} onSearchChange={handleSearchChange} />
+        <Header 
+          searchQuery={searchQuery} 
+          onSearchChange={handleSearchChange}
+        />
         <main className="container py-8">
           <div className="mb-8">
             <div className="h-8 bg-muted animate-pulse rounded mb-2 w-48"></div>
@@ -124,7 +143,10 @@ export default function Home() {
   if (error) {
     return (
       <div className="min-h-screen bg-background">
-        <Header searchQuery={searchQuery} onSearchChange={handleSearchChange} />
+        <Header 
+          searchQuery={searchQuery} 
+          onSearchChange={handleSearchChange}
+        />
         <main className="container py-8">
           <div className="text-center py-12">
             <p className="text-destructive text-lg mb-4">{error}</p>
@@ -142,29 +164,42 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header searchQuery={searchQuery} onSearchChange={handleSearchChange} />
+      <Header 
+        searchQuery={searchQuery} 
+        onSearchChange={handleSearchChange}
+      />
       <main className="container py-8 mx-auto">
         <div className="mb-8">
           <h2 className="text-3xl font-bold tracking-tight">
             {searchQuery ? `Search Results` : "Products"}
           </h2>
-          <p className="text-muted-foreground">
-            {searchQuery ? (
-              <>
-                {productsData?.total || 0} result{(productsData?.total || 0) !== 1 ? "s" : ""} found for "{searchQuery}"
-                {totalPages > 1 && (
-                  <span className="ml-2">• Page {currentPage} of {totalPages}</span>
-                )}
-              </>
-            ) : (
-              <>
-                Discover our amazing collection of {productsData?.total || 0} products
-                {totalPages > 1 && (
-                  <span className="ml-2">• Page {currentPage} of {totalPages}</span>
-                )}
-              </>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-muted-foreground">
+              {searchQuery ? (
+                <>
+                  {productsData?.total || 0} result{(productsData?.total || 0) !== 1 ? "s" : ""} found for "{searchQuery}"
+                  {totalPages > 1 && (
+                    <span className="ml-2">• Page {currentPage} of {totalPages}</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Discover our amazing collection of {productsData?.total || 0} products
+                  {totalPages > 1 && (
+                    <span className="ml-2">• Page {currentPage} of {totalPages}</span>
+                  )}
+                </>
+              )}
+            </p>
+            {products.length > 0 && (
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Sorted by: <span className="font-medium">{currentSortLabel}</span>
+                </p>
+                <SortCombobox value={sortValue} onValueChange={handleSortChange} />
+              </div>
             )}
-          </p>
+          </div>
         </div>
 
         {products.length === 0 && searchQuery ? (

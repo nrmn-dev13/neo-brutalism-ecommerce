@@ -1,3 +1,4 @@
+// components/molecules/ProductCard.tsx
 "use client";
 import Image from "next/image";
 import {
@@ -10,40 +11,39 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Plus, Eye } from "lucide-react";
+import { Star, Plus } from "lucide-react";
 import { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
-  onProductClick: (product: Product) => void;
+  onProductClick?: (product: Product) => void; // Optional click handler for opening details
 }
 
 export function ProductCard({ product, onProductClick }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the card click
+    e.stopPropagation(); // Prevent triggering onProductClick
     addItem(product);
-
+    
     toast.success("Product has been added.", {
       description: `${product.title} added to your cart`,
     });
   };
 
   const handleCardClick = () => {
-    onProductClick(product);
-  };
-
-  const handleViewDetails = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the card click
-    onProductClick(product);
+    if (onProductClick) {
+      onProductClick(product);
+    }
   };
 
   return (
-    <Card
-      className="flex flex-col h-full hover:shadow-lg transition-all cursor-pointer group hover:scale-[1.02]"
+    <Card 
+      className={`flex flex-col h-full hover:shadow-lg transition-shadow ${
+        onProductClick ? 'cursor-pointer' : ''
+      }`}
       onClick={handleCardClick}
     >
       <CardHeader className="p-4">
@@ -52,25 +52,11 @@ export function ProductCard({ product, onProductClick }: ProductCardProps) {
             src={product.thumbnail}
             alt={product.title}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
-
-          {/* Quick View Button - Shows on hover */}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <Button
-              size="sm"
-              variant="neutral"
-              onClick={handleViewDetails}
-              className="bg-white/90 text-black hover:bg-white"
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              Quick View
-            </Button>
-          </div>
         </div>
-
-        <CardTitle className="line-clamp-2 text-base group-hover:text-primary transition-colors">
+        <CardTitle className="line-clamp-2 text-base">
           {product.title}
         </CardTitle>
         <CardDescription className="line-clamp-2">
@@ -88,17 +74,14 @@ export function ProductCard({ product, onProductClick }: ProductCardProps) {
             </span>
           </div>
         </div>
-
+        
         {product.discountPercentage > 0 && (
           <div className="flex items-center space-x-2 mb-2">
-            <Badge className="text-xs bg-green-100 text-green-800 border-green-200">
+            <Badge className="text-xs">
               -{product.discountPercentage.toFixed(0)}% OFF
             </Badge>
             <span className="text-sm text-muted-foreground line-through">
-              $
-              {(product.price / (1 - product.discountPercentage / 100)).toFixed(
-                2
-              )}
+              ${(product.price / (1 - product.discountPercentage / 100)).toFixed(2)}
             </span>
           </div>
         )}
@@ -109,6 +92,14 @@ export function ProductCard({ product, onProductClick }: ProductCardProps) {
           <span className="text-2xl font-bold">
             ${product.price.toFixed(2)}
           </span>
+          <Button 
+            onClick={handleAddToCart} 
+            size="sm" 
+            disabled={product.stock === 0}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+          </Button>
         </div>
       </CardFooter>
     </Card>

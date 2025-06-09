@@ -1,7 +1,7 @@
+// components/molecules/ProductDialog.tsx
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Star, Plus, Minus, ShoppingCart } from "lucide-react";
+import { Star, Plus, Minus } from "lucide-react";
 import { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
+import { useState } from "react";
 
 interface ProductDialogProps {
   product: Product | null;
@@ -24,20 +24,20 @@ interface ProductDialogProps {
 }
 
 export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) {
-  const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
 
   if (!product) return null;
 
   const handleAddToCart = () => {
-    // Add the specified quantity to cart
+    // Add items based on selected quantity
     for (let i = 0; i < quantity; i++) {
       addItem(product);
     }
     
-    toast.success("Added to cart!", {
-      description: `${quantity} x ${product.title} added to your cart`,
+    toast.success("Product has been added.", {
+      description: `${product.title} (${quantity}x) added to your cart`,
     });
     
     // Reset quantity and close dialog
@@ -57,31 +57,24 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
     }
   };
 
-  const discountedPrice = product.price;
-  const originalPrice = product.discountPercentage > 0 
-    ? product.price / (1 - product.discountPercentage / 100)
-    : product.price;
-
-  // Use the main thumbnail if no additional images, otherwise use images array
-  const displayImages = product.images && product.images.length > 0 
-    ? product.images 
-    : [product.thumbnail];
+  const displayImages = product.images.length > 0 ? product.images : [product.thumbnail];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-left">{product.title}</DialogTitle>
-          <DialogDescription className="text-left">
+          <DialogTitle className="text-2xl font-bold line-clamp-2">
+            {product.title}
+          </DialogTitle>
+          <DialogDescription className="text-base">
             {product.description}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-          {/* Image Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Images Section */}
           <div className="space-y-4">
-            {/* Main Image */}
-            <div className="aspect-square relative overflow-hidden rounded-lg border-2 border-border">
+            <div className="aspect-square relative overflow-hidden rounded-lg border">
               <Image
                 src={displayImages[selectedImageIndex]}
                 alt={product.title}
@@ -90,18 +83,15 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
-
-            {/* Thumbnail Images */}
+            
             {displayImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto">
                 {displayImages.map((image, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`flex-shrink-0 w-16 h-16 relative overflow-hidden rounded-md border-2 transition-colors ${
-                      selectedImageIndex === index 
-                        ? "border-primary" 
-                        : "border-border hover:border-muted-foreground"
+                    className={`relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 transition-colors ${
+                      selectedImageIndex === index ? 'border-primary' : 'border-border'
                     }`}
                   >
                     <Image
@@ -119,125 +109,84 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
 
           {/* Product Details Section */}
           <div className="space-y-6">
-            {/* Category and Rating */}
-            <div className="flex items-center justify-between">
-              <Badge className="capitalize">{product.category}</Badge>
-              <div className="flex items-center space-x-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-medium">{product.rating.toFixed(1)}</span>
-                <span className="text-sm text-muted-foreground">rating</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge className="capitalize">{product.category}</Badge>
+                <Badge variant="neutral">{product.brand}</Badge>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-4 w-4 ${
+                        i < Math.floor(product.rating)
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-muted-foreground'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {product.rating.toFixed(1)} rating
+                </span>
               </div>
             </div>
 
-            <Separator />
-
-            {/* Price Section */}
             <div className="space-y-2">
-              <div className="flex items-center space-x-3">
-                <span className="text-3xl font-bold">${discountedPrice.toFixed(2)}</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold">
+                  ${product.price.toFixed(2)}
+                </span>
                 {product.discountPercentage > 0 && (
                   <>
                     <span className="text-lg text-muted-foreground line-through">
-                      ${originalPrice.toFixed(2)}
+                      ${(product.price / (1 - product.discountPercentage / 100)).toFixed(2)}
                     </span>
-                    <Badge className="bg-green-100 text-green-800 border-green-200">
+                    <Badge className="text-xs">
                       -{product.discountPercentage.toFixed(0)}% OFF
                     </Badge>
                   </>
                 )}
               </div>
               
-              {product.discountPercentage > 0 && (
-                <p className="text-sm text-green-600">
-                  You save ${(originalPrice - discountedPrice).toFixed(2)}
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+              </p>
             </div>
 
-            <Separator />
-
-            {/* Stock Information */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Availability:</span>
-                <span className={`text-sm ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                </span>
-              </div>
-              
-              {product.brand && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Brand:</span>
-                  <span className="text-sm capitalize">{product.brand}</span>
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* Quantity Selector */}
             {product.stock > 0 && (
               <div className="space-y-4">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
                   <span className="text-sm font-medium">Quantity:</span>
                   <div className="flex items-center space-x-2">
                     <Button
                       size="icon"
-                      variant="neutral"
+                      className="h-8 w-8"
                       onClick={decrementQuantity}
                       disabled={quantity <= 1}
-                      className="h-8 w-8"
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    
-                    <span className="w-12 text-center font-medium">{quantity}</span>
-                    
+                    <span className="w-8 text-center font-medium">{quantity}</span>
                     <Button
                       size="icon"
-                      variant="neutral"
+                      className="h-8 w-8"
                       onClick={incrementQuantity}
                       disabled={quantity >= product.stock}
-                      className="h-8 w-8"
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
 
-                {/* Total Price */}
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <span className="font-medium">Total:</span>
-                  <span className="text-xl font-bold">
-                    ${(discountedPrice * quantity).toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Add to Cart Button */}
-                <Button 
-                  onClick={handleAddToCart}
-                  size="lg" 
-                  className="w-full"
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Add {quantity} to Cart
+                <Button onClick={handleAddToCart} className="w-full" size="lg">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add {quantity > 1 ? `${quantity} items` : 'to Cart'}
                 </Button>
               </div>
             )}
-
-            {product.stock === 0 && (
-              <Button size="lg" className="w-full" disabled>
-                Out of Stock
-              </Button>
-            )}
-
-            {/* Product Description */}
-            <div className="space-y-2">
-              <h4 className="font-medium">Description</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {product.description}
-              </p>
-            </div>
           </div>
         </div>
       </DialogContent>

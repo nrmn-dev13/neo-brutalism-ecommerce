@@ -3,8 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/molecules/Header";
 import { ProductCard } from "@/components/molecules/ProductCard";
+import { ProductCardSkeleton } from "@/components/molecules/ProductCardSkeleton";
+import { ProductDialog } from "@/components/molecules/ProductDialog";
 import { SortCombobox } from "@/components/molecules/SortCombobox";
 import { Sidebar } from "@/components/molecules/Sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Pagination,
   PaginationContent,
@@ -14,7 +17,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { ProductsResponse, PriceRange } from "@/types";
+import { ProductsResponse, PriceRange, Product } from "@/types";
 import { getProducts, searchProducts, getProductsByCategory, getCategories, getPriceRange } from "@/lib/api";
 import { sortOptions } from "@/components/molecules/SortCombobox";
 
@@ -33,6 +36,10 @@ export default function Home() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [availablePriceRange, setAvailablePriceRange] = useState<PriceRange>({ min: 0, max: 5000 });
   const [selectedRating, setSelectedRating] = useState(0);
+  
+  // Dialog state
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Fetch categories and price range on mount
   useEffect(() => {
@@ -158,6 +165,16 @@ export default function Home() {
     setCurrentPage(1);
   };
 
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedProduct(null);
+  };
+
   // Calculate pagination values
   const totalPages = productsData ? Math.ceil(productsData.total / PRODUCTS_PER_PAGE) : 0;
   const products = productsData?.products || [];
@@ -239,12 +256,18 @@ export default function Home() {
           <Sidebar {...sidebarProps} />
           <main className="flex-1 py-8 px-6">
             <div className="mb-8">
-              <div className="h-8 bg-muted animate-pulse rounded mb-2 w-48"></div>
-              <div className="h-4 bg-muted animate-pulse rounded w-64"></div>
+              <Skeleton className="h-8 w-48 mb-2" />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <Skeleton className="h-4 w-64" />
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-10 w-[180px]" />
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
               {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="h-96 bg-muted animate-pulse rounded-lg" />
+                <ProductCardSkeleton key={i} />
               ))}
             </div>
           </main>
@@ -384,7 +407,11 @@ export default function Home() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 mb-8">
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    onProductClick={handleProductClick}
+                  />
                 ))}
               </div>
 
@@ -428,6 +455,13 @@ export default function Home() {
           )}
         </main>
       </div>
+      
+      {/* Product Dialog */}
+      <ProductDialog
+        product={selectedProduct}
+        isOpen={isDialogOpen}
+        onClose={handleCloseDialog}
+      />
     </div>
   );
 }

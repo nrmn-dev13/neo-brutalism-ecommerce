@@ -5,6 +5,8 @@ import { Header } from "@/components/molecules/Header";
 import { ProductCard } from "@/components/molecules/ProductCard";
 import { SortCombobox } from "@/components/molecules/SortCombobox";
 import { CategoryCombobox } from "@/components/molecules/CategoryCombobox";
+import { PriceRangeSlider } from "@/components/molecules/PriceRangeSlider";
+import { Separator } from "@/components/ui/separator";
 import { 
   Pagination,
   PaginationContent,
@@ -14,8 +16,8 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { ProductsResponse } from "@/types";
-import { getProducts, searchProducts, getProductsByCategory, getCategories } from "@/lib/api";
+import { ProductsResponse, PriceRange } from "@/types";
+import { getProducts, searchProducts, getProductsByCategory, getCategories, getPriceRange } from "@/lib/api";
 import { sortOptions } from "@/components/molecules/SortCombobox";
 
 const PRODUCTS_PER_PAGE = 20;
@@ -30,25 +32,41 @@ export default function Home() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [availablePriceRange, setAvailablePriceRange] = useState<PriceRange>({ min: 0, max: 5000 });
 
-  // Fetch categories on mount
+  // Fetch categories and price range on mount
   useEffect(() => {
-    async function fetchCategories() {
+    async function fetchInitialData() {
       try {
         setCategoriesLoading(true);
-        const data = await getCategories();
-        setCategories(data);
+        
+        // Fetch categories and price range in parallel
+        const [categoriesData, priceRangeData] = await Promise.all([
+          getCategories(),
+          getPriceRange()
+        ]);
+        
+        setCategories(categoriesData);
+        setAvailablePriceRange(priceRangeData);
+        setPriceRange([priceRangeData.min, priceRangeData.max]);
       } catch (err) {
-        console.error("Error loading categories:", err);
+        console.error("Error loading initial data:", err);
       } finally {
         setCategoriesLoading(false);
       }
     }
 
-    fetchCategories();
+    fetchInitialData();
   }, []);
 
-  const fetchData = useCallback(async (page: number, query: string, sort: string, category: string) => {
+  const fetchData = useCallback(async (
+    page: number, 
+    query: string, 
+    sort: string, 
+    category: string, 
+    currentPriceRange: [number, number]
+  ) => {
     try {
       setLoading(true);
       setError(null);
@@ -58,24 +76,30 @@ export default function Home() {
       const sortBy = sortOption?.sortBy;
       const order = sortOption?.order;
       
+      // Create price range object if filtering is applied
+      const priceFilter: PriceRange | undefined = 
+        (currentPriceRange[0] !== availablePriceRange.min || currentPriceRange[1] !== availablePriceRange.max)
+          ? { min: currentPriceRange[0], max: currentPriceRange[1] }
+          : undefined;
+      
       let data: ProductsResponse;
       
       // Determine which API to call based on search query and category
       if (query.trim()) {
-        // If there's a search query, use search API (note: search API doesn't support category filtering in DummyJSON)
-        data = await searchProducts(query, page, PRODUCTS_PER_PAGE, sortBy, order);
+        // If there's a search query, use search API
+        data = await searchProducts(query, page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter);
         
-        // If category is selected, filter results client-side
+        // If category is selected, filter results client-side (since search API doesn't support category filtering)
         if (category && data.products.length > 0) {
           data.products = data.products.filter(product => product.category === category);
           data.total = data.products.length;
         }
       } else if (category) {
         // If category is selected but no search query, use category API
-        data = await getProductsByCategory(category, page, PRODUCTS_PER_PAGE, sortBy, order);
+        data = await getProductsByCategory(category, page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter);
       } else {
         // No search query and no category, get all products
-        data = await getProducts(page, PRODUCTS_PER_PAGE, sortBy, order);
+        data = await getProducts(page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter);
       }
       
       setProductsData(data);
@@ -85,11 +109,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [availablePriceRange]);
 
   useEffect(() => {
-    fetchData(currentPage, searchQuery, sortValue, selectedCategory);
-  }, [currentPage, searchQuery, sortValue, selectedCategory, fetchData]);
+    if (availablePriceRange.min !== undefined && availablePriceRange.max !== undefined) {
+      fetchData(currentPage, searchQuery, sortValue, selectedCategory, priceRange);
+    }
+  }, [currentPage, searchQuery, sortValue, selectedCategory, priceRange, fetchData, availablePriceRange]);
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
@@ -106,10 +132,21 @@ export default function Home() {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
+  const handlePriceRangeChange = (newPriceRange: [number, number]) => {
+    setPriceRange(newPriceRange);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleClearAllFilters = () => {
+    setSelectedCategory("");
+    setPriceRange([availablePriceRange.min, availablePriceRange.max]);
+    setCurrentPage(1);
   };
 
   // Calculate pagination values
@@ -123,6 +160,10 @@ export default function Home() {
   const currentCategoryLabel = selectedCategory 
     ? selectedCategory.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
     : "All Categories";
+
+  // Check if any filters are applied
+  const hasActiveFilters = selectedCategory || 
+    (priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max);
 
   // Generate page numbers for pagination
   const generatePageNumbers = () => {
@@ -173,12 +214,24 @@ export default function Home() {
           {/* Static Sidebar */}
           <aside className="w-64 min-h-[calc(100vh-3.5rem)] bg-muted/30 border-r border-border p-6">
             <h1 className="text-2xl font-bold mb-6">This is sidebar</h1>
-            <CategoryCombobox
-              categories={categories}
-              value={selectedCategory}
-              onValueChange={handleCategoryChange}
-              loading={categoriesLoading}
-            />
+            
+            <div className="space-y-6">
+              <CategoryCombobox
+                categories={categories}
+                value={selectedCategory}
+                onValueChange={handleCategoryChange}
+                loading={categoriesLoading}
+              />
+              
+              <Separator />
+              
+              <PriceRangeSlider
+                value={priceRange}
+                onValueChange={handlePriceRangeChange}
+                min={availablePriceRange.min}
+                max={availablePriceRange.max}
+              />
+            </div>
           </aside>
 
           {/* Main Content */}
@@ -209,12 +262,24 @@ export default function Home() {
           {/* Static Sidebar */}
           <aside className="w-64 min-h-[calc(100vh-3.5rem)] bg-muted/30 border-r border-border p-6">
             <h1 className="text-2xl font-bold mb-6">This is sidebar</h1>
-            <CategoryCombobox
-              categories={categories}
-              value={selectedCategory}
-              onValueChange={handleCategoryChange}
-              loading={categoriesLoading}
-            />
+            
+            <div className="space-y-6">
+              <CategoryCombobox
+                categories={categories}
+                value={selectedCategory}
+                onValueChange={handleCategoryChange}
+                loading={categoriesLoading}
+              />
+              
+              <Separator />
+              
+              <PriceRangeSlider
+                value={priceRange}
+                onValueChange={handlePriceRangeChange}
+                min={availablePriceRange.min}
+                max={availablePriceRange.max}
+              />
+            </div>
           </aside>
 
           {/* Main Content */}
@@ -244,12 +309,36 @@ export default function Home() {
         {/* Static Sidebar */}
         <aside className="w-64 min-h-[calc(100vh-3.5rem)] bg-muted/30 border-r border-border p-6">
           <h1 className="text-2xl font-bold mb-6">This is sidebar</h1>
-          <CategoryCombobox
-            categories={categories}
-            value={selectedCategory}
-            onValueChange={handleCategoryChange}
-            loading={categoriesLoading}
-          />
+          
+          <div className="space-y-6">
+            <CategoryCombobox
+              categories={categories}
+              value={selectedCategory}
+              onValueChange={handleCategoryChange}
+              loading={categoriesLoading}
+            />
+            
+            <Separator />
+            
+            <PriceRangeSlider
+              value={priceRange}
+              onValueChange={handlePriceRangeChange}
+              min={availablePriceRange.min}
+              max={availablePriceRange.max}
+            />
+            
+            {hasActiveFilters && (
+              <>
+                <Separator />
+                <button
+                  onClick={handleClearAllFilters}
+                  className="w-full text-sm text-primary hover:underline"
+                >
+                  Clear all filters
+                </button>
+              </>
+            )}
+          </div>
         </aside>
 
         {/* Main Content */}
@@ -264,6 +353,9 @@ export default function Home() {
                   <>
                     {productsData?.total || 0} result{(productsData?.total || 0) !== 1 ? "s" : ""} found for "{searchQuery}"
                     {selectedCategory && <span className="ml-2">in {currentCategoryLabel}</span>}
+                    {(priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) && (
+                      <span className="ml-2">from ${priceRange[0]} to ${priceRange[1]}</span>
+                    )}
                     {totalPages > 1 && (
                       <span className="ml-2">• Page {currentPage} of {totalPages}</span>
                     )}
@@ -271,6 +363,9 @@ export default function Home() {
                 ) : selectedCategory ? (
                   <>
                     {productsData?.total || 0} product{(productsData?.total || 0) !== 1 ? "s" : ""} in {currentCategoryLabel}
+                    {(priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) && (
+                      <span className="ml-2">from ${priceRange[0]} to ${priceRange[1]}</span>
+                    )}
                     {totalPages > 1 && (
                       <span className="ml-2">• Page {currentPage} of {totalPages}</span>
                     )}
@@ -278,6 +373,9 @@ export default function Home() {
                 ) : (
                   <>
                     Discover our amazing collection of {productsData?.total || 0} products
+                    {(priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) && (
+                      <span className="ml-2">from ${priceRange[0]} to ${priceRange[1]}</span>
+                    )}
                     {totalPages > 1 && (
                       <span className="ml-2">• Page {currentPage} of {totalPages}</span>
                     )}
@@ -295,20 +393,22 @@ export default function Home() {
             </div>
           </div>
 
-          {products.length === 0 && (searchQuery || selectedCategory) ? (
+          {products.length === 0 && (searchQuery || selectedCategory || hasActiveFilters) ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground text-lg mb-4">
                 {searchQuery && selectedCategory
                   ? `No products found matching "${searchQuery}" in ${currentCategoryLabel}`
                   : searchQuery
                   ? `No products found matching "${searchQuery}"`
-                  : `No products found in ${currentCategoryLabel}`
+                  : selectedCategory
+                  ? `No products found in ${currentCategoryLabel}`
+                  : "No products found with current filters"
                 }
               </p>
               <p className="text-sm text-muted-foreground mb-4">
-                Try searching with different keywords or selecting a different category
+                Try adjusting your search terms or filters
               </p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex gap-2 justify-center flex-wrap">
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
@@ -317,12 +417,12 @@ export default function Home() {
                     Clear search
                   </button>
                 )}
-                {selectedCategory && (
+                {hasActiveFilters && (
                   <button
-                    onClick={() => setSelectedCategory("")}
+                    onClick={handleClearAllFilters}
                     className="text-primary hover:underline"
                   >
-                    Clear category filter
+                    Clear filters
                   </button>
                 )}
               </div>

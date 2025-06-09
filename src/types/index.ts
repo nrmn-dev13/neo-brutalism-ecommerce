@@ -29,3 +29,8 @@ export interface SortOption {
   sortBy?: string;
   order?: 'asc' | 'desc';
 }
+
+export interface PriceRange {
+  min: number;
+  max: number;
+}

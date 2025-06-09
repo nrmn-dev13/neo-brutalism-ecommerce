@@ -34,3 +34,8 @@ export interface PriceRange {
   min: number;
   max: number;
 }
+
+export interface FilterOptions {
+  priceRange?: PriceRange;
+  minRating?: number;
+}

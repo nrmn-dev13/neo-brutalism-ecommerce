@@ -4,9 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/molecules/Header";
 import { ProductCard } from "@/components/molecules/ProductCard";
 import { SortCombobox } from "@/components/molecules/SortCombobox";
-import { CategoryCombobox } from "@/components/molecules/CategoryCombobox";
-import { PriceRangeSlider } from "@/components/molecules/PriceRangeSlider";
-import { Separator } from "@/components/ui/separator";
+import { Sidebar } from "@/components/molecules/Sidebar";
 import { 
   Pagination,
   PaginationContent,
@@ -34,6 +32,7 @@ export default function Home() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [availablePriceRange, setAvailablePriceRange] = useState<PriceRange>({ min: 0, max: 5000 });
+  const [selectedRating, setSelectedRating] = useState(0);
 
   // Fetch categories and price range on mount
   useEffect(() => {
@@ -65,7 +64,8 @@ export default function Home() {
     query: string, 
     sort: string, 
     category: string, 
-    currentPriceRange: [number, number]
+    currentPriceRange: [number, number],
+    rating: number
   ) => {
     try {
       setLoading(true);
@@ -82,12 +82,15 @@ export default function Home() {
           ? { min: currentPriceRange[0], max: currentPriceRange[1] }
           : undefined;
       
+      // Use rating filter if selected
+      const minRating = rating > 0 ? rating : undefined;
+      
       let data: ProductsResponse;
       
       // Determine which API to call based on search query and category
       if (query.trim()) {
         // If there's a search query, use search API
-        data = await searchProducts(query, page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter);
+        data = await searchProducts(query, page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter, minRating);
         
         // If category is selected, filter results client-side (since search API doesn't support category filtering)
         if (category && data.products.length > 0) {
@@ -96,10 +99,10 @@ export default function Home() {
         }
       } else if (category) {
         // If category is selected but no search query, use category API
-        data = await getProductsByCategory(category, page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter);
+        data = await getProductsByCategory(category, page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter, minRating);
       } else {
         // No search query and no category, get all products
-        data = await getProducts(page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter);
+        data = await getProducts(page, PRODUCTS_PER_PAGE, sortBy, order, priceFilter, minRating);
       }
       
       setProductsData(data);
@@ -113,9 +116,9 @@ export default function Home() {
 
   useEffect(() => {
     if (availablePriceRange.min !== undefined && availablePriceRange.max !== undefined) {
-      fetchData(currentPage, searchQuery, sortValue, selectedCategory, priceRange);
+      fetchData(currentPage, searchQuery, sortValue, selectedCategory, priceRange, selectedRating);
     }
-  }, [currentPage, searchQuery, sortValue, selectedCategory, priceRange, fetchData, availablePriceRange]);
+  }, [currentPage, searchQuery, sortValue, selectedCategory, priceRange, selectedRating, fetchData, availablePriceRange]);
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
@@ -137,6 +140,11 @@ export default function Home() {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
+  const handleRatingChange = (rating: number) => {
+    setSelectedRating(rating);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Scroll to top when page changes
@@ -146,6 +154,7 @@ export default function Home() {
   const handleClearAllFilters = () => {
     setSelectedCategory("");
     setPriceRange([availablePriceRange.min, availablePriceRange.max]);
+    setSelectedRating(0);
     setCurrentPage(1);
   };
 
@@ -162,8 +171,9 @@ export default function Home() {
     : "All Categories";
 
   // Check if any filters are applied
-  const hasActiveFilters = selectedCategory || 
-    (priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max);
+  const hasActiveFilters = Boolean(selectedCategory) || 
+    (priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) ||
+    selectedRating > 0;
 
   // Generate page numbers for pagination
   const generatePageNumbers = () => {
@@ -203,6 +213,21 @@ export default function Home() {
     return pages;
   };
 
+  // Sidebar props
+  const sidebarProps = {
+    categories,
+    selectedCategory,
+    onCategoryChange: handleCategoryChange,
+    categoriesLoading,
+    priceRange,
+    onPriceRangeChange: handlePriceRangeChange,
+    availablePriceRange,
+    selectedRating,
+    onRatingChange: handleRatingChange,
+    hasActiveFilters,
+    onClearAllFilters: handleClearAllFilters,
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -211,30 +236,7 @@ export default function Home() {
           onSearchChange={handleSearchChange}
         />
         <div className="flex">
-          {/* Static Sidebar */}
-          <aside className="w-64 min-h-[calc(100vh-3.5rem)] bg-muted/30 border-r border-border p-6">
-            <h1 className="text-2xl font-bold mb-6">This is sidebar</h1>
-            
-            <div className="space-y-6">
-              <CategoryCombobox
-                categories={categories}
-                value={selectedCategory}
-                onValueChange={handleCategoryChange}
-                loading={categoriesLoading}
-              />
-              
-              <Separator />
-              
-              <PriceRangeSlider
-                value={priceRange}
-                onValueChange={handlePriceRangeChange}
-                min={availablePriceRange.min}
-                max={availablePriceRange.max}
-              />
-            </div>
-          </aside>
-
-          {/* Main Content */}
+          <Sidebar {...sidebarProps} />
           <main className="flex-1 py-8 px-6">
             <div className="mb-8">
               <div className="h-8 bg-muted animate-pulse rounded mb-2 w-48"></div>
@@ -259,30 +261,7 @@ export default function Home() {
           onSearchChange={handleSearchChange}
         />
         <div className="flex">
-          {/* Static Sidebar */}
-          <aside className="w-64 min-h-[calc(100vh-3.5rem)] bg-muted/30 border-r border-border p-6">
-            <h1 className="text-2xl font-bold mb-6">This is sidebar</h1>
-            
-            <div className="space-y-6">
-              <CategoryCombobox
-                categories={categories}
-                value={selectedCategory}
-                onValueChange={handleCategoryChange}
-                loading={categoriesLoading}
-              />
-              
-              <Separator />
-              
-              <PriceRangeSlider
-                value={priceRange}
-                onValueChange={handlePriceRangeChange}
-                min={availablePriceRange.min}
-                max={availablePriceRange.max}
-              />
-            </div>
-          </aside>
-
-          {/* Main Content */}
+          <Sidebar {...sidebarProps} />
           <main className="flex-1 py-8 px-6">
             <div className="text-center py-12">
               <p className="text-destructive text-lg mb-4">{error}</p>
@@ -306,42 +285,7 @@ export default function Home() {
         onSearchChange={handleSearchChange}
       />
       <div className="flex">
-        {/* Static Sidebar */}
-        <aside className="w-64 min-h-[calc(100vh-3.5rem)] bg-muted/30 border-r border-border p-6">
-          <h1 className="text-2xl font-bold mb-6">This is sidebar</h1>
-          
-          <div className="space-y-6">
-            <CategoryCombobox
-              categories={categories}
-              value={selectedCategory}
-              onValueChange={handleCategoryChange}
-              loading={categoriesLoading}
-            />
-            
-            <Separator />
-            
-            <PriceRangeSlider
-              value={priceRange}
-              onValueChange={handlePriceRangeChange}
-              min={availablePriceRange.min}
-              max={availablePriceRange.max}
-            />
-            
-            {hasActiveFilters && (
-              <>
-                <Separator />
-                <button
-                  onClick={handleClearAllFilters}
-                  className="w-full text-sm text-primary hover:underline"
-                >
-                  Clear all filters
-                </button>
-              </>
-            )}
-          </div>
-        </aside>
-
-        {/* Main Content */}
+        <Sidebar {...sidebarProps} />
         <main className="flex-1 py-8 px-6">
           <div className="mb-8">
             <h2 className="text-3xl font-bold tracking-tight">
@@ -356,6 +300,9 @@ export default function Home() {
                     {(priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) && (
                       <span className="ml-2">from ${priceRange[0]} to ${priceRange[1]}</span>
                     )}
+                    {selectedRating > 0 && (
+                      <span className="ml-2">with {selectedRating}+ star{selectedRating !== 1 ? 's' : ''}</span>
+                    )}
                     {totalPages > 1 && (
                       <span className="ml-2">• Page {currentPage} of {totalPages}</span>
                     )}
@@ -366,6 +313,9 @@ export default function Home() {
                     {(priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) && (
                       <span className="ml-2">from ${priceRange[0]} to ${priceRange[1]}</span>
                     )}
+                    {selectedRating > 0 && (
+                      <span className="ml-2">with {selectedRating}+ star{selectedRating !== 1 ? 's' : ''}</span>
+                    )}
                     {totalPages > 1 && (
                       <span className="ml-2">• Page {currentPage} of {totalPages}</span>
                     )}
@@ -375,6 +325,9 @@ export default function Home() {
                     Discover our amazing collection of {productsData?.total || 0} products
                     {(priceRange[0] !== availablePriceRange.min || priceRange[1] !== availablePriceRange.max) && (
                       <span className="ml-2">from ${priceRange[0]} to ${priceRange[1]}</span>
+                    )}
+                    {selectedRating > 0 && (
+                      <span className="ml-2">with {selectedRating}+ star{selectedRating !== 1 ? 's' : ''}</span>
                     )}
                     {totalPages > 1 && (
                       <span className="ml-2">• Page {currentPage} of {totalPages}</span>

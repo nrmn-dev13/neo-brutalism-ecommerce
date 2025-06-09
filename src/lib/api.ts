@@ -1,4 +1,4 @@
-import { Product, ProductsResponse, PriceRange } from '@/types';
+import { Product, ProductsResponse, PriceRange, FilterOptions } from '@/types';
 
 // Helper function to filter products by price range
 function filterProductsByPriceRange(products: Product[], priceRange: PriceRange): Product[] {
@@ -7,39 +7,74 @@ function filterProductsByPriceRange(products: Product[], priceRange: PriceRange)
   );
 }
 
+// Helper function to filter products by minimum rating
+function filterProductsByRating(products: Product[], minRating: number): Product[] {
+  return products.filter(product => product.rating >= minRating);
+}
+
+// Helper function to apply all client-side filters
+function applyFilters(products: Product[], filters?: FilterOptions): Product[] {
+  let filtered = products;
+  
+  if (filters?.priceRange) {
+    filtered = filterProductsByPriceRange(filtered, filters.priceRange);
+  }
+  
+  if (filters?.minRating && filters.minRating > 0) {
+    filtered = filterProductsByRating(filtered, filters.minRating);
+  }
+  
+  return filtered;
+}
+
 export async function getProducts(
   page: number = 1, 
   limit: number = 20,
   sortBy?: string,
   order?: 'asc' | 'desc',
-  priceRange?: PriceRange
+  priceRange?: PriceRange,
+  minRating?: number
 ): Promise<ProductsResponse> {
   try {
-    // If price filter is applied, we need to fetch more products to ensure we have enough after filtering
-    const fetchLimit = priceRange ? Math.max(limit * 5, 100) : limit;
-    const skip = priceRange ? 0 : (page - 1) * limit; // Reset skip if filtering by price
+    // Check if any filters are applied
+    const hasFilters = (priceRange && (priceRange.min > 0 || priceRange.max < 5000)) || (minRating && minRating > 0);
     
-    let url = `https://dummyjson.com/products?limit=${fetchLimit}&skip=${skip}`;
-    
-    if (sortBy && order && !priceRange) {
-      url += `&sortBy=${sortBy}&order=${order}`;
+    // If no filters, use normal pagination
+    if (!hasFilters) {
+      const skip = (page - 1) * limit;
+      let url = `https://dummyjson.com/products?limit=${limit}&skip=${skip}`;
+      
+      if (sortBy && order) {
+        url += `&sortBy=${sortBy}&order=${order}`;
+      }
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      return await response.json();
     }
-    
-    const response = await fetch(url);
+
+    // If filters are applied, fetch all products and filter client-side
+    const response = await fetch('https://dummyjson.com/products?limit=0');
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
     const data: ProductsResponse = await response.json();
     
-    let filteredProducts = data.products;
-    
-    // Apply price range filter if specified
+    // Apply client-side filters
+    const filters: FilterOptions = {};
     if (priceRange && (priceRange.min > 0 || priceRange.max < 5000)) {
-      filteredProducts = filterProductsByPriceRange(data.products, priceRange);
+      filters.priceRange = priceRange;
+    }
+    if (minRating && minRating > 0) {
+      filters.minRating = minRating;
     }
     
-    // Apply client-side sorting if price filter is applied (since API sorting is disabled for price filtering)
-    if (priceRange && sortBy && order) {
+    let filteredProducts = applyFilters(data.products, filters);
+    
+    // Apply client-side sorting if needed
+    if (sortBy && order) {
       filteredProducts.sort((a, b) => {
         let comparison = 0;
         
@@ -62,9 +97,9 @@ export async function getProducts(
     }
     
     // Apply pagination to filtered results
-    const startIndex = priceRange ? (page - 1) * limit : 0;
+    const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedProducts = priceRange ? filteredProducts.slice(startIndex, endIndex) : filteredProducts;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
     
     return {
       products: paginatedProducts,
@@ -74,7 +109,7 @@ export async function getProducts(
     };
   } catch (error) {
     console.error('Error fetching products:', error);
-    // Fallback dummy data jika API gagal
+    // Fallback dummy data with proper total for pagination
     return {
       products: [
         {
@@ -104,7 +139,7 @@ export async function getProducts(
           images: ["https://via.placeholder.com/300x300"]
         }
       ],
-      total: 2,
+      total: 194, // Use realistic total for pagination demo
       skip: 0,
       limit: 20
     };
@@ -117,34 +152,49 @@ export async function getProductsByCategory(
   limit: number = 20,
   sortBy?: string,
   order?: 'asc' | 'desc',
-  priceRange?: PriceRange
+  priceRange?: PriceRange,
+  minRating?: number
 ): Promise<ProductsResponse> {
   try {
-    // If price filter is applied, we need to fetch more products
-    const fetchLimit = priceRange ? Math.max(limit * 5, 100) : limit;
-    const skip = priceRange ? 0 : (page - 1) * limit;
+    // Check if any filters are applied
+    const hasFilters = (priceRange && (priceRange.min > 0 || priceRange.max < 5000)) || (minRating && minRating > 0);
     
-    let url = `https://dummyjson.com/products/category/${category}?limit=${fetchLimit}&skip=${skip}`;
-    
-    if (sortBy && order && !priceRange) {
-      url += `&sortBy=${sortBy}&order=${order}`;
+    // If no filters, use normal pagination
+    if (!hasFilters) {
+      const skip = (page - 1) * limit;
+      let url = `https://dummyjson.com/products/category/${category}?limit=${limit}&skip=${skip}`;
+      
+      if (sortBy && order) {
+        url += `&sortBy=${sortBy}&order=${order}`;
+      }
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products by category');
+      }
+      return await response.json();
     }
-    
-    const response = await fetch(url);
+
+    // If filters are applied, fetch all products in category and filter client-side
+    const response = await fetch(`https://dummyjson.com/products/category/${category}?limit=0`);
     if (!response.ok) {
       throw new Error('Failed to fetch products by category');
     }
     const data: ProductsResponse = await response.json();
     
-    let filteredProducts = data.products;
-    
-    // Apply price range filter if specified
+    // Apply client-side filters
+    const filters: FilterOptions = {};
     if (priceRange && (priceRange.min > 0 || priceRange.max < 5000)) {
-      filteredProducts = filterProductsByPriceRange(data.products, priceRange);
+      filters.priceRange = priceRange;
+    }
+    if (minRating && minRating > 0) {
+      filters.minRating = minRating;
     }
     
-    // Apply client-side sorting if price filter is applied
-    if (priceRange && sortBy && order) {
+    let filteredProducts = applyFilters(data.products, filters);
+    
+    // Apply client-side sorting if needed
+    if (sortBy && order) {
       filteredProducts.sort((a, b) => {
         let comparison = 0;
         
@@ -167,9 +217,9 @@ export async function getProductsByCategory(
     }
     
     // Apply pagination to filtered results
-    const startIndex = priceRange ? (page - 1) * limit : 0;
+    const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedProducts = priceRange ? filteredProducts.slice(startIndex, endIndex) : filteredProducts;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
     
     return {
       products: paginatedProducts,
@@ -194,34 +244,49 @@ export async function searchProducts(
   limit: number = 20,
   sortBy?: string,
   order?: 'asc' | 'desc',
-  priceRange?: PriceRange
+  priceRange?: PriceRange,
+  minRating?: number
 ): Promise<ProductsResponse> {
   try {
-    // If price filter is applied, we need to fetch more products
-    const fetchLimit = priceRange ? Math.max(limit * 5, 100) : limit;
-    const skip = priceRange ? 0 : (page - 1) * limit;
+    // Check if any filters are applied
+    const hasFilters = (priceRange && (priceRange.min > 0 || priceRange.max < 5000)) || (minRating && minRating > 0);
     
-    let url = `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=${fetchLimit}&skip=${skip}`;
-    
-    if (sortBy && order && !priceRange) {
-      url += `&sortBy=${sortBy}&order=${order}`;
+    // If no filters, use normal pagination
+    if (!hasFilters) {
+      const skip = (page - 1) * limit;
+      let url = `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=${limit}&skip=${skip}`;
+      
+      if (sortBy && order) {
+        url += `&sortBy=${sortBy}&order=${order}`;
+      }
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to search products');
+      }
+      return await response.json();
     }
-    
-    const response = await fetch(url);
+
+    // If filters are applied, fetch all search results and filter client-side
+    const response = await fetch(`https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=0`);
     if (!response.ok) {
       throw new Error('Failed to search products');
     }
     const data: ProductsResponse = await response.json();
     
-    let filteredProducts = data.products;
-    
-    // Apply price range filter if specified
+    // Apply client-side filters
+    const filters: FilterOptions = {};
     if (priceRange && (priceRange.min > 0 || priceRange.max < 5000)) {
-      filteredProducts = filterProductsByPriceRange(data.products, priceRange);
+      filters.priceRange = priceRange;
+    }
+    if (minRating && minRating > 0) {
+      filters.minRating = minRating;
     }
     
-    // Apply client-side sorting if price filter is applied
-    if (priceRange && sortBy && order) {
+    let filteredProducts = applyFilters(data.products, filters);
+    
+    // Apply client-side sorting if needed
+    if (sortBy && order) {
       filteredProducts.sort((a, b) => {
         let comparison = 0;
         
@@ -244,9 +309,9 @@ export async function searchProducts(
     }
     
     // Apply pagination to filtered results
-    const startIndex = priceRange ? (page - 1) * limit : 0;
+    const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedProducts = priceRange ? filteredProducts.slice(startIndex, endIndex) : filteredProducts;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
     
     return {
       products: paginatedProducts,

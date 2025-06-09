@@ -6,9 +6,15 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'fakestoreapi.com',
+        hostname: 'cdn.dummyjson.com',
         port: '',
-        pathname: '/img/**',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dummyjson.com',
+        port: '',
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -18,7 +24,7 @@ const nextConfig: NextConfig = {
       },
     ],
     // Alternative: jika remotePatterns tidak bekerja
-    // domains: ['fakestoreapi.com', 'via.placeholder.com'],
+    // domains: ['cdn.dummyjson.com', 'dummyjson.com', 'via.placeholder.com'],
   },
 };
 

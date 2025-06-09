@@ -86,7 +86,7 @@ export function Cart({ isOpen, onClose }: CartProps) {
               <div key={item.id} className="flex items-center space-x-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-md">
                   <Image
-                    src={item.image}
+                    src={item.thumbnail}
                     alt={item.title}
                     fill
                     className="object-cover"
@@ -101,6 +101,11 @@ export function Cart({ isOpen, onClose }: CartProps) {
                   <p className="text-sm text-muted-foreground">
                     ${item.price.toFixed(2)}
                   </p>
+                  {item.discountPercentage > 0 && (
+                    <p className="text-xs text-green-600">
+                      {item.discountPercentage.toFixed(0)}% off
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">

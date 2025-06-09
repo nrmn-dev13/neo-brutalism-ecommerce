@@ -27,7 +27,7 @@ export function ProductCard({ product }: ProductCardProps) {
     console.log('add to cart');
     
     toast.success("Product has been added.", {
-      description: "Sunday, December 03, 2023 at 9:00 AM",
+      description: `${product.title} added to your cart`,
     });
   };
 
@@ -36,7 +36,7 @@ export function ProductCard({ product }: ProductCardProps) {
       <CardHeader className="p-4">
         <div className="aspect-square relative mb-4 overflow-hidden rounded-md">
           <Image
-            src={product.image}
+            src={product.thumbnail}
             alt={product.title}
             fill
             className="object-cover"
@@ -57,10 +57,21 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-center space-x-1">
             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
             <span className="text-sm text-muted-foreground">
-              {product.rating.rate} ({product.rating.count})
+              {product.rating.toFixed(1)} ({product.stock} in stock)
             </span>
           </div>
         </div>
+        
+        {product.discountPercentage > 0 && (
+          <div className="flex items-center space-x-2 mb-2">
+            <Badge className="text-xs">
+              -{product.discountPercentage.toFixed(0)}% OFF
+            </Badge>
+            <span className="text-sm text-muted-foreground line-through">
+              ${(product.price / (1 - product.discountPercentage / 100)).toFixed(2)}
+            </span>
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="p-4 pt-0">
@@ -68,9 +79,9 @@ export function ProductCard({ product }: ProductCardProps) {
           <span className="text-2xl font-bold">
             ${product.price.toFixed(2)}
           </span>
-          <Button onClick={handleAddToCart} size="sm">
+          <Button onClick={handleAddToCart} size="sm" disabled={product.stock === 0}>
             <Plus className="h-4 w-4 mr-1" />
-            Add to Cart
+            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
           </Button>
         </div>
       </CardFooter>

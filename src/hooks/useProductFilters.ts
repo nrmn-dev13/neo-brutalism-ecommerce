@@ -1,5 +1,5 @@
 // hooks/useProductFilters.ts
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getCategories, getPriceRange } from "@/lib/api";
 import { PriceRange } from "@/types";
 
@@ -56,16 +56,16 @@ export function useProductFilters() {
     fetchInitialData();
   }, []);
 
-  const updateFilters = (updates: Partial<ProductFilters>) => {
+  const updateFilters = useCallback((updates: Partial<ProductFilters>) => {
     setFilters((prev) => ({ ...prev, ...updates }));
-  };
+  }, []);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setFilters({
       ...DEFAULT_FILTERS,
       priceRange: [availablePriceRange.min, availablePriceRange.max],
     });
-  };
+  }, [availablePriceRange]);
 
   const hasActiveFilters =
     Boolean(filters.selectedCategory) ||

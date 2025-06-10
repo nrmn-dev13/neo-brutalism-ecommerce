@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Header } from "@/components/molecules/Header";
 import { ProductDialog } from "@/components/molecules/ProductDialog";
 import { Sidebar } from "@/components/molecules/Sidebar";
@@ -13,10 +14,18 @@ import { Product } from "@/types";
 import { useProductFilters } from "@/hooks/useProductFilters";
 import { useProductsData } from "@/hooks/useProductsData";
 import { useProductDialog } from "@/hooks/useProductDialog";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const PRODUCTS_PER_PAGE = 20;
+const SEARCH_DEBOUNCE_DELAY = 500; // 500ms delay
 
 export default function Home() {
+  // Separate search input value from the actual search query
+  const [searchInput, setSearchInput] = useState("");
+  
+  // Debounce the search input
+  const debouncedSearchQuery = useDebounce(searchInput, SEARCH_DEBOUNCE_DELAY);
+
   // Custom hooks for state management
   const {
     filters,
@@ -28,6 +37,11 @@ export default function Home() {
     clearAllFilters,
   } = useProductFilters();
 
+  // Update the search query in filters when debounced value changes
+  useEffect(() => {
+    updateFilters({ searchQuery: debouncedSearchQuery, currentPage: 1 });
+  }, [debouncedSearchQuery, updateFilters]);
+
   const { productsData, loading, error, refetch } = useProductsData(
     filters,
     PRODUCTS_PER_PAGE
@@ -38,7 +52,7 @@ export default function Home() {
 
   // Event handlers
   const handleSearchChange = (query: string) => {
-    updateFilters({ searchQuery: query, currentPage: 1 });
+    setSearchInput(query);
   };
 
   const handleSortChange = (value: string) => {
@@ -66,6 +80,15 @@ export default function Home() {
     openDialog(product);
   };
 
+  const handleClearSearch = () => {
+    setSearchInput("");
+  };
+
+  const handleClearAllFilters = () => {
+    setSearchInput("");
+    clearAllFilters();
+  };
+
   // Derived values
   const products = productsData?.products || [];
   const totalPages = productsData
@@ -83,15 +106,15 @@ export default function Home() {
     availablePriceRange,
     selectedRating: filters.selectedRating,
     onRatingChange: handleRatingChange,
-    hasActiveFilters,
-    onClearAllFilters: clearAllFilters,
+    hasActiveFilters: hasActiveFilters || Boolean(searchInput.trim()),
+    onClearAllFilters: handleClearAllFilters,
   };
 
   // Render states
   if (loading) {
     return (
       <LoadingState
-        searchQuery={filters.searchQuery}
+        searchQuery={searchInput}
         onSearchChange={handleSearchChange}
         sidebarProps={sidebarProps}
       />
@@ -102,7 +125,7 @@ export default function Home() {
     return (
       <ErrorState
         error={error}
-        searchQuery={filters.searchQuery}
+        searchQuery={searchInput}
         onSearchChange={handleSearchChange}
         onRetry={refetch}
         sidebarProps={sidebarProps}
@@ -117,7 +140,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <Header
-        searchQuery={filters.searchQuery}
+        searchQuery={searchInput}
         onSearchChange={handleSearchChange}
       />
 
@@ -136,9 +159,9 @@ export default function Home() {
           {shouldShowEmptyState ? (
             <EmptyState
               filters={filters}
-              hasActiveFilters={hasActiveFilters}
-              onClearSearch={() => updateFilters({ searchQuery: "" })}
-              onClearAllFilters={clearAllFilters}
+              hasActiveFilters={hasActiveFilters || Boolean(searchInput.trim())}
+              onClearSearch={handleClearSearch}
+              onClearAllFilters={handleClearAllFilters}
             />
           ) : (
             <>

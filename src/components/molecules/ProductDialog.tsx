@@ -23,8 +23,11 @@ interface ProductDialogProps {
   onClose: () => void;
 }
 
-export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+export function ProductDialog({
+  product,
+  isOpen,
+  onClose,
+}: ProductDialogProps) {
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
 
@@ -35,11 +38,11 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
     for (let i = 0; i < quantity; i++) {
       addItem(product);
     }
-    
+
     toast.success("Product has been added.", {
       description: `${product.title} (${quantity}x) added to your cart`,
     });
-    
+
     // Reset quantity and close dialog
     setQuantity(1);
     onClose();
@@ -47,17 +50,15 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
 
   const incrementQuantity = () => {
     if (quantity < product.stock) {
-      setQuantity(prev => prev + 1);
+      setQuantity((prev) => prev + 1);
     }
   };
 
   const decrementQuantity = () => {
     if (quantity > 1) {
-      setQuantity(prev => prev - 1);
+      setQuantity((prev) => prev - 1);
     }
   };
-
-  const displayImages = product.images.length > 0 ? product.images : [product.thumbnail];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -76,35 +77,13 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
           <div className="space-y-4">
             <div className="aspect-square relative overflow-hidden rounded-lg border">
               <Image
-                src={displayImages[selectedImageIndex]}
+                src={product.thumbnail}
                 alt={product.title}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
-            
-            {displayImages.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
-                {displayImages.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 transition-colors ${
-                      selectedImageIndex === index ? 'border-primary' : 'border-border'
-                    }`}
-                  >
-                    <Image
-                      src={image}
-                      alt={`${product.title} ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="64px"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Product Details Section */}
@@ -112,9 +91,8 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Badge className="capitalize">{product.category}</Badge>
-                <Badge variant="neutral">{product.brand}</Badge>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <div className="flex items-center">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -122,8 +100,8 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating)
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'text-muted-foreground'
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-muted-foreground"
                       }`}
                     />
                   ))}
@@ -135,24 +113,32 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-baseline gap-2">
+              <div className="flex flex-col items-baseline gap-2">
+                <div className="flex gap-2">
+                  {product.discountPercentage > 0 && (
+                    <>
+                      <span className="text-lg text-muted-foreground line-through">
+                        $
+                        {(
+                          product.price /
+                          (1 - product.discountPercentage / 100)
+                        ).toFixed(2)}
+                      </span>
+                      <Badge className="text-xs">
+                        -{product.discountPercentage.toFixed(0)}% OFF
+                      </Badge>
+                    </>
+                  )}
+                </div>
                 <span className="text-3xl font-bold">
                   ${product.price.toFixed(2)}
                 </span>
-                {product.discountPercentage > 0 && (
-                  <>
-                    <span className="text-lg text-muted-foreground line-through">
-                      ${(product.price / (1 - product.discountPercentage / 100)).toFixed(2)}
-                    </span>
-                    <Badge className="text-xs">
-                      -{product.discountPercentage.toFixed(0)}% OFF
-                    </Badge>
-                  </>
-                )}
               </div>
-              
+
               <p className="text-sm text-muted-foreground">
-                {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                {product.stock > 0
+                  ? `${product.stock} in stock`
+                  : "Out of stock"}
               </p>
             </div>
 
@@ -169,7 +155,9 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="w-8 text-center font-medium">{quantity}</span>
+                    <span className="w-8 text-center font-medium">
+                      {quantity}
+                    </span>
                     <Button
                       size="icon"
                       className="h-8 w-8"
@@ -183,7 +171,7 @@ export function ProductDialog({ product, isOpen, onClose }: ProductDialogProps) 
 
                 <Button onClick={handleAddToCart} className="w-full" size="lg">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add {quantity > 1 ? `${quantity} items` : 'to Cart'}
+                  Add {quantity > 1 ? `${quantity} items` : "to Cart"}
                 </Button>
               </div>
             )}

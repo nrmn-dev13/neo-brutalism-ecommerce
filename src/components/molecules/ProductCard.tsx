@@ -4,17 +4,13 @@ import Image from "next/image";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Plus } from "lucide-react";
+import { Star } from "lucide-react";
 import { Product } from "@/types";
-import { useCartStore } from "@/store/cartStore";
-import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -22,16 +18,6 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onProductClick }: ProductCardProps) {
-  const addItem = useCartStore((state) => state.addItem);
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering onProductClick
-    addItem(product);
-    
-    toast.success("Product has been added.", {
-      description: `${product.title} added to your cart`,
-    });
-  };
 
   const handleCardClick = () => {
     if (onProductClick) {
@@ -59,9 +45,6 @@ export function ProductCard({ product, onProductClick }: ProductCardProps) {
         <CardTitle className="line-clamp-2 text-base">
           {product.title}
         </CardTitle>
-        <CardDescription className="line-clamp-2">
-          {product.description}
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="flex-1 p-4 pt-0">
@@ -92,14 +75,6 @@ export function ProductCard({ product, onProductClick }: ProductCardProps) {
           <span className="text-2xl font-bold">
             ${product.price.toFixed(2)}
           </span>
-          <Button 
-            onClick={handleAddToCart} 
-            size="sm" 
-            disabled={product.stock === 0}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-          </Button>
         </div>
       </CardFooter>
     </Card>

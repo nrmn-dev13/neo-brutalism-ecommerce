@@ -80,7 +80,7 @@ export function Cart({ isOpen, onClose }: CartProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-auto py-4">
+        <div className="flex-1 overflow-auto p-4">
           <div className="space-y-4">
             {items.map((item) => (
               <div key={item.id} className="flex items-center space-x-4">
@@ -145,12 +145,12 @@ export function Cart({ isOpen, onClose }: CartProps) {
         <div className="space-y-4 pt-4">
           <Separator />
 
-          <div className="flex items-center justify-between text-lg font-semibold">
+          <div className="flex items-center justify-between text-lg font-semibold px-4">
             <span>Total:</span>
             <span>${totalPrice.toFixed(2)}</span>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 px-4 pb-4">
             <Button className="w-full" size="lg">
               Checkout
             </Button>
